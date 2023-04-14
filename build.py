@@ -29,8 +29,8 @@ LOGROTATE_SCRIPT = "scripts/logrotate"
 DEFAULT_CONFIG = "sample.toml"
 
 CONFIGURATION_FILES = [
-    CONFIG_DIR + '/influxdb-relay.conf',
-    LOGROTATE_DIR + '/influxdb-relay',
+    f'{CONFIG_DIR}/influxdb-relay.conf',
+    f'{LOGROTATE_DIR}/influxdb-relay',
 ]
 
 PACKAGE_LICENSE = "MIT"
@@ -58,7 +58,7 @@ fpm_common_args = "-f -s dir --log error \
      DESCRIPTION)
 
 for f in CONFIGURATION_FILES:
-    fpm_common_args += " --config-files {}".format(f)
+    fpm_common_args += f" --config-files {f}"
 
 targets = {
     'influxdb-relay' : './main.go'
@@ -87,7 +87,7 @@ def print_banner():
 def create_package_fs(build_root):
     """Create a filesystem structure to mimic the package filesystem.
     """
-    logging.debug("Creating package filesystem at location: {}".format(build_root))
+    logging.debug(f"Creating package filesystem at location: {build_root}")
     # Using [1:] for the path names due to them being absolute
     # (will overwrite previous paths, per 'os.path.join' documentation)
     dirs = [ INSTALL_ROOT_DIR[1:],
@@ -131,14 +131,14 @@ def go_get(branch, update=False, no_uncommitted=False):
         run(get_command)
     logging.info("Retrieving dependencies with `gdm`...")
     sys.stdout.flush()
-    run("{}/bin/gdm restore -v".format(os.environ.get("GOPATH")))
+    run(f'{os.environ.get("GOPATH")}/bin/gdm restore -v')
     return True
 
 def run(command, allow_failure=False, shell=False):
     """Run shell command (convenience wrapper around subprocess).
     """
     out = None
-    logging.debug("{}".format(command))
+    logging.debug(f"{command}")
     try:
         if shell:
             out = subprocess.check_output(command, stderr=subprocess.STDOUT, shell=shell)
@@ -148,17 +148,17 @@ def run(command, allow_failure=False, shell=False):
         # logging.debug("Command output: {}".format(out))
     except subprocess.CalledProcessError as e:
         if allow_failure:
-            logging.warn("Command '{}' failed with error: {}".format(command, e.output))
+            logging.warn(f"Command '{command}' failed with error: {e.output}")
             return None
         else:
-            logging.error("Command '{}' failed with error: {}".format(command, e.output))
+            logging.error(f"Command '{command}' failed with error: {e.output}")
             sys.exit(1)
     except OSError as e:
         if allow_failure:
-            logging.warn("Command '{}' failed with error: {}".format(command, e))
+            logging.warn(f"Command '{command}' failed with error: {e}")
             return out
         else:
-            logging.error("Command '{}' failed with error: {}".format(command, e))
+            logging.error(f"Command '{command}' failed with error: {e}")
             sys.exit(1)
     else:
         return out
@@ -167,7 +167,7 @@ def create_temp_dir(prefix = None):
     """ Create temporary directory with optional prefix.
     """
     if prefix is None:
-        return tempfile.mkdtemp(prefix="{}-build.".format(PACKAGE_NAME))
+        return tempfile.mkdtemp(prefix=f"{PACKAGE_NAME}-build.")
     else:
         return tempfile.mkdtemp(prefix=prefix)
 
@@ -177,25 +177,25 @@ def increment_minor_version(version):
     """
     ver_list = version.split('.')
     if len(ver_list) != 3:
-        logging.warn("Could not determine how to increment version '{}', will just use provided version.".format(version))
+        logging.warn(
+            f"Could not determine how to increment version '{version}', will just use provided version."
+        )
         return version
     ver_list[1] = str(int(ver_list[1]) + 1)
     ver_list[2] = str(0)
     inc_version = '.'.join(ver_list)
-    logging.debug("Incremented version from '{}' to '{}'.".format(version, inc_version))
+    logging.debug(f"Incremented version from '{version}' to '{inc_version}'.")
     return inc_version
 
 def get_current_version_tag():
     """Retrieve the raw git version tag.
     """
-    version = run("git describe --always --tags --abbrev=0")
-    return version
+    return run("git describe --always --tags --abbrev=0")
 
 def get_current_version():
     """Parse version information from git tag output.
     """
-    version_tag = get_current_commit(short=True)
-    return version_tag
+    return get_current_commit(short=True)
 
 def get_current_commit(short=False):
     """Retrieve the current git commit.
@@ -219,9 +219,7 @@ def local_changes():
     """Return True if there are local un-committed changes.
     """
     output = run("git diff-files --ignore-submodules --").strip()
-    if len(output) > 0:
-        return True
-    return False
+    return len(output) > 0
 
 def get_system_arch():
     """Retrieve current system architecture.
@@ -239,19 +237,14 @@ def get_system_arch():
 def get_system_platform():
     """Retrieve current system platform.
     """
-    if sys.platform.startswith("linux"):
-        return "linux"
-    else:
-        return sys.platform
+    return "linux" if sys.platform.startswith("linux") else sys.platform
 
 def get_go_version():
     """Retrieve version information for Go.
     """
     out = run("go version")
     matches = re.search('go version go(\S+)', out)
-    if matches is not None:
-        return matches.groups()[0].strip()
-    return None
+    return matches.groups()[0].strip() if matches is not None else None
 
 def check_path_for(b):
     """Check the the user's path for the provided binary.
@@ -270,7 +263,7 @@ def check_environ(build_dir = None):
     """
     logging.info("Checking environment...")
     for v in [ "GOPATH", "GOBIN", "GOROOT" ]:
-        logging.debug("Using '{}' for {}".format(os.environ.get(v), v))
+        logging.debug(f"Using '{os.environ.get(v)}' for {v}")
 
     cwd = os.getcwd()
     if build_dir is None and os.environ.get("GOPATH") and os.environ.get("GOPATH") not in cwd:
@@ -283,7 +276,7 @@ def check_prereqs():
     logging.info("Checking for dependencies...")
     for req in prereqs:
         if not check_path_for(req):
-            logging.error("Could not find dependency: {}".format(req))
+            logging.error(f"Could not find dependency: {req}")
             return False
     return True
 
@@ -299,10 +292,7 @@ def go_list(vendor=False, relative=False):
     if packages[-1] == '':
         packages = packages[:-1]
     if not vendor:
-        non_vendor = []
-        for p in packages:
-            if '/vendor/' not in p:
-                non_vendor.append(p)
+        non_vendor = [p for p in packages if '/vendor/' not in p]
         packages = non_vendor
     if relative:
         relative_pkgs = []
@@ -323,88 +313,83 @@ def build(version=None,
           static=False):
     """Build each target for the specified architecture and platform.
     """
-    logging.info("Starting build for {}/{}...".format(platform, arch))
-    logging.info("Using Go version: {}".format(get_go_version()))
-    logging.info("Using git branch: {}".format(get_current_branch()))
-    logging.info("Using git commit: {}".format(get_current_commit()))
+    logging.info(f"Starting build for {platform}/{arch}...")
+    logging.info(f"Using Go version: {get_go_version()}")
+    logging.info(f"Using git branch: {get_current_branch()}")
+    logging.info(f"Using git commit: {get_current_commit()}")
     if static:
         logging.info("Using statically-compiled output.")
     if len(tags) > 0:
-        logging.info("Using build tags: {}".format(','.join(tags)))
+        logging.info(f"Using build tags: {','.join(tags)}")
 
-    logging.info("Sending build output to: {}".format(outdir))
+    logging.info(f"Sending build output to: {outdir}")
     if not os.path.exists(outdir):
         os.makedirs(outdir)
     elif clean and outdir != '/' and outdir != ".":
-        logging.info("Cleaning build directory '{}' before building.".format(outdir))
+        logging.info(f"Cleaning build directory '{outdir}' before building.")
         shutil.rmtree(outdir)
         os.makedirs(outdir)
 
-    logging.info("Using version '{}' for build.".format(version))
+    logging.info(f"Using version '{version}' for build.")
 
     tmp_build_dir = create_temp_dir()
     for target, path in targets.items():
-        logging.info("Building target: {}".format(target))
+        logging.info(f"Building target: {target}")
         build_command = ""
 
         # Handle static binary output
-        if static is True or "static_" in arch:
+        if static is True:
             if "static_" in arch:
                 static = True
                 arch = arch.replace("static_", "")
             build_command += "CGO_ENABLED=0 "
 
+        elif "static_" in arch:
+            static = True
+            arch = arch.replace("static_", "")
+            build_command += "CGO_ENABLED=0 "
+
         # Handle variations in architecture output
-        if arch == "i386" or arch == "i686":
+        if arch in ["i386", "i686"]:
             arch = "386"
         elif "arm" in arch:
             arch = "arm"
-        build_command += "GOOS={} GOARCH={} ".format(platform, arch)
+        build_command += f"GOOS={platform} GOARCH={arch} "
 
         if "arm" in arch:
             if arch == "armel":
                 build_command += "GOARM=5 "
-            elif arch == "armhf" or arch == "arm":
+            elif arch in ["armhf", "arm"]:
                 build_command += "GOARM=6 "
             elif arch == "arm64":
                 # TODO(rossmcdonald) - Verify this is the correct setting for arm64
                 build_command += "GOARM=7 "
             else:
-                logging.error("Invalid ARM architecture specified: {}".format(arch))
+                logging.error(f"Invalid ARM architecture specified: {arch}")
                 logging.error("Please specify either 'armel', 'armhf', or 'arm64'.")
                 return False
         if platform == 'windows':
-            target = target + '.exe'
-        build_command += "go build -o {} ".format(os.path.join(outdir, target))
+            target = f'{target}.exe'
+        build_command += f"go build -o {os.path.join(outdir, target)} "
         if len(tags) > 0:
-            build_command += "-tags {} ".format(','.join(tags))
+            build_command += f"-tags {','.join(tags)} "
         if "1.4" in get_go_version():
-            if static:
-                build_command += "-ldflags=\"-s -X main.version {} -X main.branch {} -X main.commit {}\" ".format(version,
-                                                                                                                  get_current_branch(),
-                                                                                                                  get_current_commit())
-            else:
-                build_command += "-ldflags=\"-X main.version {} -X main.branch {} -X main.commit {}\" ".format(version,
-                                                                                                               get_current_branch(),
-                                                                                                               get_current_commit())
-
+            build_command += (
+                f'-ldflags=\"-s -X main.version {version} -X main.branch {get_current_branch()} -X main.commit {get_current_commit()}\" '
+                if static
+                else f'-ldflags=\"-X main.version {version} -X main.branch {get_current_branch()} -X main.commit {get_current_commit()}\" '
+            )
+        elif static:
+            build_command += f'-ldflags=\"-s -X main.version={version} -X main.branch={get_current_branch()} -X main.commit={get_current_commit()}\" '
         else:
-            # Starting with Go 1.5, the linker flag arguments changed to 'name=value' from 'name value'
-            if static:
-                build_command += "-ldflags=\"-s -X main.version={} -X main.branch={} -X main.commit={}\" ".format(version,
-                                                                                                                  get_current_branch(),
-                                                                                                                  get_current_commit())
-            else:
-                build_command += "-ldflags=\"-X main.version={} -X main.branch={} -X main.commit={}\" ".format(version,
-                                                                                                               get_current_branch(),
-                                                                                                               get_current_commit())
+            build_command += f'-ldflags=\"-X main.version={version} -X main.branch={get_current_branch()} -X main.commit={get_current_commit()}\" '
         if static:
             build_command += "-a -installsuffix cgo "
         build_command += path
         start_time = datetime.utcnow()
         run(build_command, shell=True)
         end_time = datetime.utcnow()
-        logging.info("Time taken: {}s".format((end_time - start_time).total_seconds()))
+        logging.info(f"Time taken: {(end_time - start_time).total_seconds()}s")
     return True
 
 def generate_md5_from_file(path):
